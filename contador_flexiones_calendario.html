@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contador diario de flexiones</title>
+<style>
+:root{color-scheme:dark;--bg:#101114;--panel:#1b1d23;--text:#f4f5f7;--muted:#a7abb5;--accent:#b7f34a;--line:#343740;--done:#b7f34a}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px;background:radial-gradient(circle at top,#252a30 0,#101114 55%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{width:min(100%,480px);background:rgba(27,29,35,.97);border:1px solid var(--line);border-radius:28px;padding:clamp(20px,5vw,30px);box-shadow:0 20px 70px #0006}
+.eyebrow{color:var(--accent);text-transform:uppercase;letter-spacing:.16em;font-size:.74rem;font-weight:800;text-align:center}
+h1{text-align:center;font-size:clamp(1.8rem,7vw,2.4rem);line-height:1.05;margin:12px 0 8px}
+.subtitle{text-align:center;color:var(--muted);margin:0 0 24px}
+.count{text-align:center;font-size:5.3rem;line-height:1;font-weight:850;letter-spacing:-.06em;margin:12px 0 8px;font-variant-numeric:tabular-nums}
+.goal{text-align:center;color:var(--muted);font-weight:600}
+.track{height:11px;background:var(--line);border-radius:99px;overflow:hidden;margin:22px 0 10px}.fill{height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .25s ease}
+.progress-label{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:.85rem}
+button{border:0;border-radius:14px;padding:14px 16px;font-size:1rem;font-weight:800;cursor:pointer;transition:transform .12s,opacity .12s}
+button:active{transform:scale(.98)}button:disabled{cursor:not-allowed;opacity:.45}
+.add{width:100%;margin-top:24px;color:#151811;background:var(--accent);font-size:1.06rem;padding:17px}
+.message{text-align:center;min-height:25px;margin:16px 0 18px;font-weight:700}.success{color:var(--accent)}
+.reset{width:100%;color:var(--text);background:#30333b;font-size:.9rem}
+.calendar{margin-top:27px;border-top:1px solid var(--line);padding-top:22px}
+.cal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px}
+.cal-head h2{font-size:1.08rem;margin:0;text-transform:capitalize}
+.nav{width:38px;height:38px;padding:0;background:#30333b;color:var(--text);font-size:1.3rem}
+.weekdays,.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.weekdays{text-align:center;color:var(--muted);font-size:.74rem;margin-bottom:7px}
+.day{min-width:0;aspect-ratio:1;padding:0;border:1px solid transparent;border-radius:11px;background:#272a31;color:var(--text);font-size:.85rem;font-weight:650;position:relative}
+.day.empty{visibility:hidden}
+.day.today{border-color:var(--accent)}
+.day.selected{background:var(--accent);color:#151811}
+.day.completed::after{content:"";position:absolute;width:5px;height:5px;border-radius:50%;background:var(--accent);bottom:4px;left:calc(50% - 2.5px)}
+.day.selected.completed::after{background:#151811}
+.day.future{opacity:.35}
+.legend{display:flex;flex-wrap:wrap;gap:14px;color:var(--muted);font-size:.78rem;margin-top:14px}
+.legend span{display:flex;align-items:center;gap:6px}.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block}.outline{width:9px;height:9px;border:1px solid var(--accent);border-radius:3px;display:inline-block}
+.day-detail{margin-top:18px;padding:14px;background:#252830;border-radius:14px}
+.detail-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.detail-top strong{text-transform:capitalize}
+.detail-count{font-weight:850;font-size:1.3rem}
+.detail-status{color:var(--muted);font-size:.82rem;margin:0}
+.small{text-align:center;color:var(--muted);font-size:.76rem;margin:15px 0 0}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Reto diario</div>
+  <h1>Contador de flexiones</h1>
+  <p class="subtitle" id="dateSubtitle">Tu progreso de hoy</p>
+  <div class="count" id="count" aria-live="polite">0</div>
+  <div class="goal">de 50 flexiones</div>
+  <div class="track" role="progressbar" aria-label="Progreso diario" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0" id="progress"><div class="fill" id="fill"></div></div>
+  <div class="progress-label"><span id="percent">0 % completado</span><span id="remaining">Faltan 50</span></div>
+  <button class="add" id="addBtn">＋ Añadir 5 flexiones</button>
+  <p class="message" id="message" aria-live="polite">¡Vamos! Empieza cuando estés listo.</p>
+  <button class="reset" id="resetBtn">Reiniciar contador de este día</button>
+
+  <section class="calendar" aria-label="Calendario de progreso">
+    <div class="cal-head">
+      <button class="nav" id="prevMonth" aria-label="Mes anterior">‹</button>
+      <h2 id="monthTitle">Mes</h2>
+      <button class="nav" id="nextMonth" aria-label="Mes siguiente">›</button>
+    </div>
+    <div class="weekdays"><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+    <div class="days" id="days"></div>
+    <div class="legend"><span><i class="dot"></i> Día con progreso</span><span><i class="outline"></i> Hoy</span></div>
+    <div class="day-detail" id="dayDetail">
+      <div class="detail-top"><strong id="detailDate">Hoy</strong><span class="detail-count" id="detailCount">0 / 50</span></div>
+      <p class="detail-status" id="detailStatus">Aún no has registrado flexiones.</p>
+    </div>
+  </section>
+  <p class="small">El contador cambia automáticamente cada día. El historial se guarda en este navegador.</p>
+</main>
+<script>
+(() => {
+  const GOAL=50, STEP=5, KEY='pushup-calendar-v2';
+  const $=id=>document.getElementById(id);
+  const countEl=$('count'), fillEl=$('fill'), percentEl=$('percent'), remainingEl=$('remaining'), progressEl=$('progress'), addBtn=$('addBtn'), resetBtn=$('resetBtn'), messageEl=$('message');
+  const todayKey=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+  const parseKey=k=>{const [y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d,12)};
+  const keyForDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const prettyDate=k=>parseKey(k).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  let data={}; let selected=todayKey(); let viewDate=parseKey(todayKey());
+  try { const saved=JSON.parse(localStorage.getItem(KEY)); if(saved&&saved.days&&typeof saved.days==='object') data=saved.days; } catch(_){}
+  function value(k){return Math.min(GOAL,Math.max(0,Number(data[k])||0))}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify({days:data}))}catch(_){}}
+  function renderCounter(){
+    const n=value(selected),pct=Math.round(n/GOAL*100),isToday=selected===todayKey(),future=selected>todayKey();
+    countEl.textContent=n;fillEl.style.width=pct+'%';percentEl.textContent=pct+' % completado';remainingEl.textContent=n>=GOAL?'¡Objetivo logrado!':'Faltan '+(GOAL-n);progressEl.setAttribute('aria-valuenow',n);
+    addBtn.disabled=!isToday||n>=GOAL;resetBtn.disabled=future;
+    addBtn.textContent=!isToday?'Selecciona hoy para añadir':n>=GOAL?'✓ Objetivo completado':'＋ Añadir 5 flexiones';
+    if(n>=GOAL){messageEl.textContent='¡Reto completado! Has llegado a 50 flexiones. 💪';messageEl.className='message success'}
+    else if(future){messageEl.textContent='Este día todavía no ha llegado.';messageEl.className='message'}
+    else if(!isToday){messageEl.textContent='Estás viendo el historial de este día.';messageEl.className='message'}
+    else {messageEl.textContent=n===0?'¡Vamos! Empieza cuando estés listo.':'¡Bien hecho! Sigue a tu ritmo.';messageEl.className='message'}
+    $('dateSubtitle').textContent=isToday?'Tu progreso de hoy':prettyDate(selected);
+    $('detailDate').textContent=prettyDate(selected);$('detailCount').textContent=n+' / '+GOAL;
+    $('detailStatus').textContent=n>=GOAL?'Objetivo completado. ¡Buen trabajo!':n>0?`Has registrado ${n} flexiones${isToday?' hoy':''}.`:(future?'Este día aún está por llegar.':'No hay flexiones registradas para este día.');
+  }
+  function renderCalendar(){
+    const y=viewDate.getFullYear(),m=viewDate.getMonth();
+    $('monthTitle').textContent=new Date(y,m,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+    const first=new Date(y,m,1),offset=(first.getDay()+6)%7,total=new Date(y,m+1,0).getDate(),days=$('days');days.innerHTML='';
+    for(let i=0;i<offset;i++){const blank=document.createElement('div');blank.className='day empty';days.appendChild(blank)}
+    for(let day=1;day<=total;day++){
+      const d=new Date(y,m,day,12),k=keyForDate(d),n=value(k),btn=document.createElement('button');
+      btn.className='day'+(k===todayKey()?' today':'')+(k===selected?' selected':'')+(n>0?' completed':'')+(k>todayKey()?' future':'');
+      btn.textContent=day;btn.setAttribute('aria-label',`${prettyDate(k)}: ${n} de ${GOAL} flexiones`);btn.title=`${n} / ${GOAL} flexiones`;
+      btn.addEventListener('click',()=>{selected=k;renderCounter();renderCalendar()});days.appendChild(btn);
+    }
+  }
+  addBtn.addEventListener('click',()=>{if(selected!==todayKey()||value(selected)>=GOAL)return;data[selected]=Math.min(GOAL,value(selected)+STEP);save();renderCounter();renderCalendar()});
+  resetBtn.addEventListener('click',()=>{if(selected>todayKey())return;if(value(selected)>0&&!confirm(`¿Quieres borrar el progreso del ${prettyDate(selected)}?`))return;delete data[selected];save();renderCounter();renderCalendar()});
+  $('prevMonth').addEventListener('click',()=>{viewDate=new Date(viewDate.getFullYear(),viewDate.getMonth()-1,1,12);renderCalendar()});
+  $('nextMonth').addEventListener('click',()=>{const candidate=new Date(viewDate.getFullYear(),viewDate.getMonth()+1,1,12);if(candidate<=new Date(new Date().getFullYear(),new Date().getMonth(),1,12)){viewDate=candidate;renderCalendar()}});
+  // Si la página sigue abierta al cambiar de día, cambia al día nuevo automáticamente.
+  let lastToday=todayKey();
+  setInterval(()=>{const now=todayKey();if(now!==lastToday){lastToday=now;selected=now;viewDate=parseKey(now);renderCounter();renderCalendar()}},30000);
+  renderCounter();renderCalendar();
+})();
+</script>
+</body>
+</html>
